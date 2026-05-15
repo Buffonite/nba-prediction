@@ -1,0 +1,28 @@
+# Downloaded / processed data (large files — not version-controlled)
+data/raw/
+data/processed/
+
+# Saved model weights
+outputs/models/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.DS_Store
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Plots are committed so readers see results without running code
+# outputs/plots/  ← intentionally NOT ignored

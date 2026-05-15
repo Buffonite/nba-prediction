@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBA 2025-26 Playoff Predictions — Neural Network Model</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue',
+                 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #fafafa;
+    color: #1d1d1f;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  /* Header */
+  header {
+    background: linear-gradient(135deg, #1d428a 0%, #c8102e 100%);
+    color: #fff;
+    padding: 60px 0 80px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -100px;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(255,107,53,0.3) 0%, transparent 60%);
+    transform: translateY(-50%);
+  }
+  header .container { position: relative; z-index: 2; }
+  .tag {
+    display: inline-block;
+    background: rgba(255,255,255,0.15);
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-size: 42px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 12px;
+  }
+  .subtitle {
+    font-size: 18px;
+    opacity: 0.9;
+    max-width: 600px;
+  }
+
+  /* Hero champion card */
+  .champion-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 36px 32px;
+    margin: -50px auto 50px;
+    max-width: 700px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+    text-align: center;
+    position: relative;
+    z-index: 3;
+  }
+  .champion-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #888;
+    margin-bottom: 8px;
+  }
+  .champion-name {
+    font-size: 56px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ff6b35 0%, #c8102e 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+  .champion-prob {
+    font-size: 18px;
+    color: #555;
+  }
+  .champion-prob strong { color: #1d1d1f; font-weight: 600; }
+
+  /* Sections */
+  section { padding: 50px 0; }
+  section h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    letter-spacing: -0.3px;
+  }
+  section .lead {
+    font-size: 16px;
+    color: #555;
+    margin-bottom: 24px;
+    max-width: 700px;
+  }
+
+  /* Bar chart for champion probabilities */
+  .bars { margin-top: 20px; }
+  .bar-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 70px;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+  }
+  .bar-team {
+    font-weight: 700;
+    font-size: 15px;
+    color: #1d428a;
+  }
+  .bar-track {
+    height: 24px;
+    background: #f3f3f5;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff6b35 0%, #c8102e 100%);
+    border-radius: 4px;
+    transition: width 0.6s ease;
+  }
+  .bar-fill.secondary {
+    background: linear-gradient(90deg, #1d428a 0%, #4a6fbf 100%);
+  }
+  .bar-pct {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: #555;
+  }
+
+  /* Round 2 status cards */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 700px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+  .series-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #e5e5e7;
+  }
+  .series-card.locked { background: #f0f7f0; border-color: #c5e0c5; }
+  .series-status {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+  .series-locked-tag { color: #2e7d32; font-weight: 700; }
+  .series-live-tag { color: #c8102e; font-weight: 700; }
+  .series-matchup {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .series-score {
+    font-size: 14px;
+    color: #555;
+  }
+  .series-note {
+    font-size: 13px;
+    color: #888;
+    margin-top: 8px;
+  }
+
+  /* Path table */
+  .table-wrapper {
+    background: #fff;
+    border-radius: 12px;
+    overflow-x: auto;
+    border: 1px solid #e5e5e7;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+  }
+  th {
+    background: #f8f8fa;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+  }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.team { font-weight: 700; color: #1d428a; }
+  tr:hover { background: #fafafa; }
+  tr:last-child td { border-bottom: none; }
+
+  /* Metrics row */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-top: 20px;
+  }
+  @media (max-width: 700px) {
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+  }
+  .metric {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px 16px;
+    text-align: center;
+    border: 1px solid #e5e5e7;
+  }
+  .metric-value {
+    font-size: 32px;
+    font-weight: 800;
+    color: #1d428a;
+    font-variant-numeric: tabular-nums;
+  }
+  .metric-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  /* Methodology */
+  .pipeline {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid #e5e5e7;
+  }
+  .pipeline-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 0;
+  }
+  .pipeline-step:not(:last-child) { border-bottom: 1px solid #eee; }
+  .pipeline-step-num {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #1d428a 0%, #4a6fbf 100%);
+    color: #fff;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .pipeline-step h4 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .pipeline-step p {
+    font-size: 14px;
+    color: #555;
+  }
+  code {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    background: #f3f3f5;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.92em;
+  }
+
+  /* Disclaimer */
+  .disclaimer {
+    background: #fff8e1;
+    border-left: 4px solid #f9a825;
+    border-radius: 4px;
+    padding: 14px 18px;
+    font-size: 14px;
+    color: #5d4e00;
+    margin-top: 32px;
+  }
+  .disclaimer strong { color: #4a3e00; }
+
+  /* Footer */
+  footer {
+    padding: 40px 0;
+    text-align: center;
+    color: #888;
+    font-size: 13px;
+    border-top: 1px solid #eee;
+    margin-top: 30px;
+  }
+  footer a { color: #1d428a; text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <span class="tag">NEURAL NETWORK • TENSORFLOW • PORTFOLIO PROJECT</span>
+    <h1>NBA 2025-26 Playoff Predictions</h1>
+    <p class="subtitle">
+      Monte-Carlo bracket projection driven by a feed-forward neural network
+      trained on 5,257 real NBA games. As of mid-May 2026, Round 2 in progress.
+    </p>
+  </div>
+</header>
+
+<div class="container">
+  <div class="champion-card">
+    <div class="champion-label">Predicted Champion</div>
+    <div class="champion-name">New York Knicks</div>
+    <div class="champion-prob">
+      Modelled probability:
+      <strong>53.1%</strong>
+      &nbsp;·&nbsp;
+      10,000-iteration Monte-Carlo
+    </div>
+  </div>
+
+  <!-- ── Champion probabilities ── -->
+  <section>
+    <h2>Championship probabilities</h2>
+    <p class="lead">
+      Each of 10,000 simulated bracket continuations samples best-of-7 outcomes
+      from the model's single-game win probabilities. The distribution below
+      is the share of simulations in which each team won the title.
+    </p>
+    <div class="bars">
+      <div class="bar-row">
+        <span class="bar-team">NYK</span>
+        <div class="bar-track"><div class="bar-fill" style="width:53.1%"></div></div>
+        <span class="bar-pct">53.1%</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-team">OKC</span>
+        <div class="bar-track"><div class="bar-fill" style="width:26.1%"></div></div>
+        <span class="bar-pct">26.1%</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-team">SAS</span>
+        <div class="bar-track"><div class="bar-fill" style="width:17.5%"></div></div>
+        <span class="bar-pct">17.5%</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-team">DET</span>
+        <div class="bar-track"><div class="bar-fill secondary" style="width:2.4%"></div></div>
+        <span class="bar-pct">2.4%</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-team">CLE</span>
+        <div class="bar-track"><div class="bar-fill secondary" style="width:0.7%"></div></div>
+        <span class="bar-pct">0.7%</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-team">MIN</span>
+        <div class="bar-track"><div class="bar-fill secondary" style="width:0.2%"></div></div>
+        <span class="bar-pct">0.2%</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Round 2 status ── -->
+  <section>
+    <h2>Conference Semi-finals — current state</h2>
+    <p class="lead">
+      Two East and two West series are mid-flight. Sweep results from NYK and
+      OKC are already locked in; DET-CLE and SAS-MIN are tied 2-2 with three
+      games remaining.
+    </p>
+    <div class="grid-2">
+      <div class="series-card locked">
+        <div class="series-status"><span class="series-locked-tag">★ Locked</span> · East</div>
+        <div class="series-matchup">NYK 4 — 0 PHI</div>
+        <div class="series-score">Sweep. Advances to Eastern Conference Finals.</div>
+      </div>
+      <div class="series-card locked">
+        <div class="series-status"><span class="series-locked-tag">★ Locked</span> · West</div>
+        <div class="series-matchup">OKC 4 — 0 LAL</div>
+        <div class="series-score">Sweep. Advances to Western Conference Finals.</div>
+      </div>
+      <div class="series-card">
+        <div class="series-status"><span class="series-live-tag">● Live</span> · East</div>
+        <div class="series-matchup">DET 2 — 2 CLE</div>
+        <div class="series-score">Best-of-3 remaining · DET has home court in Games 5 & 7</div>
+        <div class="series-note">Model: DET advances 67.5%</div>
+      </div>
+      <div class="series-card">
+        <div class="series-status"><span class="series-live-tag">● Live</span> · West</div>
+        <div class="series-matchup">SAS 2 — 2 MIN</div>
+        <div class="series-score">Best-of-3 remaining · SAS has home court in Games 5 & 7</div>
+        <div class="series-note">Model: SAS advances 75.1%</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Path to title ── -->
+  <section>
+    <h2>Each contender's path to the title</h2>
+    <p class="lead">
+      Probability of reaching each subsequent round, conditional on the current
+      bracket state shown above.
+    </p>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Team</th>
+            <th class="num">Conference Finals</th>
+            <th class="num">NBA Finals</th>
+            <th class="num">Champion</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="team">NYK</td><td class="num">100.0%</td><td class="num">87.9%</td><td class="num"><strong>53.1%</strong></td></tr>
+          <tr><td class="team">OKC</td><td class="num">100.0%</td><td class="num">59.2%</td><td class="num"><strong>26.1%</strong></td></tr>
+          <tr><td class="team">SAS</td><td class="num">75.1%</td><td class="num">36.8%</td><td class="num"><strong>17.5%</strong></td></tr>
+          <tr><td class="team">DET</td><td class="num">67.5%</td><td class="num">8.9%</td><td class="num">2.4%</td></tr>
+          <tr><td class="team">CLE</td><td class="num">32.5%</td><td class="num">3.2%</td><td class="num">0.7%</td></tr>
+          <tr><td class="team">MIN</td><td class="num">24.9%</td><td class="num">4.0%</td><td class="num">0.2%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Model stats ── -->
+  <section>
+    <h2>Model performance</h2>
+    <p class="lead">
+      Feed-forward neural network (128 → 64 → 32 → sigmoid) with BatchNorm,
+      Dropout, and early stopping. Evaluated chronologically — never using
+      future data to predict past games.
+    </p>
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-value">5,257</div>
+        <div class="metric-label">Games trained</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">4</div>
+        <div class="metric-label">Seasons (2022 – 26)</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">0.721</div>
+        <div class="metric-label">ROC-AUC</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">67.8%</div>
+        <div class="metric-label">Test accuracy</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Methodology ── -->
+  <section>
+    <h2>How it works</h2>
+    <p class="lead">
+      Four-stage pipeline: data acquisition → feature engineering → model
+      training → bracket simulation.
+    </p>
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">1</div>
+        <div>
+          <h4>Data acquisition (<code>src/data_fetch_bref.py</code>)</h4>
+          <p>Scrapes monthly schedules from Basketball Reference for 4 seasons of
+          NBA games — regular season and playoffs, ~5,257 games total.</p>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">2</div>
+        <div>
+          <h4>Feature engineering (<code>src/preprocessing.py</code> + <code>src/elo.py</code>)</h4>
+          <p>For every game, computes each team's rolling 5- and 10-game stats
+          (win %, points scored/allowed, net rating), rest days, and pre-game
+          ELO ratings (FiveThirtyEight-style with home advantage and MOV).
+          Strict <code>.shift(1)</code> guards against data leakage.</p>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">3</div>
+        <div>
+          <h4>Model training (<code>src/model.py</code> + <code>src/train.py</code>)</h4>
+          <p>Dense network with BatchNorm, Dropout (0.3), and early stopping on
+          validation AUC. Logistic regression baseline trained on the same
+          features for comparison.</p>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">4</div>
+        <div>
+          <h4>Bracket simulation (<code>src/playoffs.py</code>)</h4>
+          <p>Monte-Carlo simulates 10,000 full-bracket continuations. Each
+          best-of-7 series respects the 2-2-1-1-1 home-court format and uses
+          single-game probabilities (cached) for each potential matchup.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      <strong>Honest caveats.</strong>
+      This model is trained on regular-season games — it does not capture
+      playoff-specific dynamics (tighter rotations, scheme adjustments, key
+      injuries). Star-player availability is implicitly assumed at 100% in
+      the current run. Treat the percentages as the model's view of an
+      idealised series, not a betting recommendation.
+    </div>
+  </section>
+</div>
+
+<footer>
+  Built with TensorFlow, scikit-learn, pandas, and Streamlit.
+  Code &amp; documentation:
+  <a href="README.md">README</a>
+  ·
+  <a href="TUTORIAL.md">Tutorial</a>
+</footer>
+
+</body>
+</html>
