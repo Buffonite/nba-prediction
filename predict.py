@@ -65,6 +65,11 @@ def main():
                         help="Number of star players (0-5) playing for home team")
     parser.add_argument("--away-stars", type=int, default=5, metavar="N",
                         help="Number of star players (0-5) playing for away team")
+    parser.add_argument("--home-ml", type=int, default=None, metavar="ODDS",
+                        help="Optional home team moneyline (American odds, e.g. -150). "
+                             "Only used if the trained model includes odds features.")
+    parser.add_argument("--away-ml", type=int, default=None, metavar="ODDS",
+                        help="Optional away team moneyline (American odds, e.g. +130)")
 
     args = parser.parse_args()
 
@@ -75,6 +80,8 @@ def main():
             game_date=args.date,
             home_stars_avail=args.home_stars,
             away_stars_avail=args.away_stars,
+            home_ml=args.home_ml,
+            away_ml=args.away_ml,
         )
     except FileNotFoundError as e:
         print(f"\n❌ {e}", file=sys.stderr)

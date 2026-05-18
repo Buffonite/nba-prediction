@@ -99,6 +99,8 @@ def build_prediction_features(
     historical_games: pd.DataFrame,
     home_stars_avail: int = 5,
     away_stars_avail: int = 5,
+    home_ml: int | None = None,
+    away_ml: int | None = None,
 ) -> pd.Series:
     """
     Build the same feature set used during training, but for ONE upcoming game.
@@ -150,6 +152,18 @@ def build_prediction_features(
     features["away_stars_avail"] = away_stars_avail
     features["stars_avail_diff"] = home_stars_avail - away_stars_avail
 
+    # Optional: betting odds features (only populated if the trained model
+    # used them — predict.py checks feature_cols and fills these in only
+    # when needed).
+    if home_ml is not None and away_ml is not None:
+        from src.odds import american_to_prob, remove_vig
+        h_raw = american_to_prob(home_ml)
+        a_raw = american_to_prob(away_ml)
+        h_fair, a_fair = remove_vig(h_raw, a_raw)
+        features["home_implied_prob"] = h_fair
+        features["away_implied_prob"] = a_fair
+        features["market_edge"]       = h_fair - 0.5
+
     return pd.Series(features)
 
 
@@ -161,6 +175,8 @@ def predict_game(
     game_date: str | None = None,
     home_stars_avail: int = 5,
     away_stars_avail: int = 5,
+    home_ml: int | None = None,
+    away_ml: int | None = None,
 ) -> dict:
     """
     Predict the probability that the home team wins.
@@ -171,6 +187,9 @@ def predict_game(
         game_date:        "YYYY-MM-DD" string, default = today
         home_stars_avail: 0-5, how many top players will play for home
         away_stars_avail: 0-5, same for away
+        home_ml:          optional home moneyline (American odds, e.g. -150)
+        away_ml:          optional away moneyline (American odds, e.g. +130)
+                          Ignored if the trained model didn't use odds features.
 
     Returns:
         Dict with prediction details, ready to print or use programmatically.
@@ -195,6 +214,7 @@ def predict_game(
         home_id, away_id, game_dt, games,
         home_stars_avail=home_stars_avail,
         away_stars_avail=away_stars_avail,
+        home_ml=home_ml, away_ml=away_ml,
     )
 
     # 6. Select in saved order, scale, predict

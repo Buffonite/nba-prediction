@@ -83,6 +83,7 @@ def _rest_features(log: pd.DataFrame) -> pd.DataFrame:
 def build_features(
     games: pd.DataFrame,
     star_avail: pd.DataFrame | None = None,
+    odds: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """
     Takes the game-level table (one row per game) from data_fetch.build_game_table()
@@ -92,6 +93,8 @@ def build_features(
         games:      per-game table (may include ELO columns from src.elo)
         star_avail: optional DataFrame from src.injuries.compute_star_availability
                     with columns [GAME_ID, home_stars_avail, away_stars_avail, stars_avail_diff]
+        odds:       optional DataFrame from src.odds (synthetic or real)
+                    with columns [GAME_ID, home_implied_prob, away_implied_prob, market_edge]
 
     Target column: 'home_win'  (1 = home team wins, 0 = away team wins)
     """
@@ -142,6 +145,12 @@ def build_features(
         features = features.merge(star_avail, on="GAME_ID", how="left")
         print(f"  + Star-availability columns merged: "
               f"{[c for c in star_avail.columns if c != 'GAME_ID']}")
+
+    # ── Attach betting-odds features (market consensus) ─────────────────────
+    if odds is not None:
+        features = features.merge(odds, on="GAME_ID", how="left")
+        print(f"  + Odds columns merged: "
+              f"{[c for c in odds.columns if c != 'GAME_ID']}")
 
     # Drop rows where rolling stats are NaN (very early games with no history)
     features = features.dropna().reset_index(drop=True)

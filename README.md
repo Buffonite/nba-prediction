@@ -318,8 +318,34 @@ OKC), and a prioritized roadmap to close that gap. Written specifically to discu
 
 ---
 
+## 💰 Betting odds integration (optional feature)
+
+The model supports betting odds as input features ([`src/odds.py`](src/odds.py)).
+Three modes via `python main.py --odds {off|csv|synthetic}`:
+
+| Mode | Source | Use when |
+|---|---|---|
+| `off` (default) | None | Honest baseline; what you see in published metrics |
+| `csv` | `data/raw/odds.csv` from Kaggle / SBR / scraper | Real evaluation with market features |
+| `synthetic` | Generated from outcomes + noise | Pipeline demo only — inflates AUC |
+
+Effect when synthetic odds are added (illustrative only):
+- NN AUC: **0.72 → 0.85** (+13 pp)
+- Confirms the integration works and shows the ceiling of what real odds could contribute
+
+For live predictions, supply moneylines at the CLI:
+
+```bash
+python predict.py NYK DET --home-ml -180 --away-ml +155
+```
+
+Or fetch live odds programmatically via The Odds API (free 500 reqs/month;
+see [`src/odds.py:fetch_live_odds`](src/odds.py)).
+
 ## 🔮 Future work
 
+- [x] ~~Betting-odds feature integration~~ ([`src/odds.py`](src/odds.py))
+- [ ] **Real historical odds dataset** — currently relies on user-supplied CSV
 - [ ] **XGBoost ensemble** — average NN + tree predictions (typical 1-2% AUC gain)
 - [ ] **Player-level ELO** — track individual players, not just teams
 - [ ] **Real injury reports** — scrape Rotoworld or `nba_api` injury endpoint

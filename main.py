@@ -97,6 +97,9 @@ def main():
     parser.add_argument("--source", choices=["nba_api", "bref"], default="nba_api",
                         help="Data source: 'nba_api' (default) or 'bref' (Basketball Reference, "
                              "use this if stats.nba.com is blocked)")
+    parser.add_argument("--odds", choices=["off", "csv", "synthetic"], default="off",
+                        help="Betting odds feature: 'off' (default), 'csv' (load real historical "
+                             "odds from config.ODDS_CSV_PATH), or 'synthetic' (demo, inflates AUC)")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -145,9 +148,26 @@ def main():
             stars = identify_stars(player_logs)
             star_avail = compute_star_availability(player_logs, stars, games)
 
-    # 2c. Build the final feature matrix (rolling stats + ELO + injuries)
+    # 2c. Betting odds (off / csv / synthetic)
+    odds = None
+    if args.odds == "csv":
+        from src.odds import load_odds_csv
+        odds_raw = load_odds_csv()
+        # Join on (date, home_abbr, away_abbr) to attach GAME_ID
+        odds = games.merge(
+            odds_raw,
+            left_on=["GAME_DATE", "home_team_abbr", "away_team_abbr"],
+            right_on=["game_date", "home_team_abbr", "away_team_abbr"],
+            how="inner",
+        )[["GAME_ID", "home_implied_prob", "away_implied_prob", "market_edge"]]
+        print(f"  + Loaded real odds for {len(odds):,} games")
+    elif args.odds == "synthetic":
+        from src.odds import synthetic_odds
+        odds = synthetic_odds(games)
+
+    # 2d. Build the final feature matrix (rolling stats + ELO + injuries + odds)
     from src.preprocessing import build_features
-    features = build_features(games, star_avail=star_avail)
+    features = build_features(games, star_avail=star_avail, odds=odds)
 
     # ── Step 3: Training ──────────────────────────────────────────────────────
     print("\n[3/4] Model training")

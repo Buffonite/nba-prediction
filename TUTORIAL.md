@@ -28,6 +28,7 @@
   - [9.5 替代架构 — 残差连接、宽 vs 深](#95-替代架构--残差连接宽-vs-深)
 - [Part 10: 季后赛 Bracket 模拟器](#part-10-季后赛-bracket-模拟器)
 - [Part 11: Basketball Reference 备用数据源](#part-11-basketball-reference-备用数据源)
+- [Part 12: 集成博彩开盘赔率 — 借市场的智慧](#part-12-集成博彩开盘赔率--借市场的智慧)
 
 ---
 
@@ -2106,6 +2107,185 @@ else:
 2. **数据格式抽象** — 让下游代码看到统一接口
 3. **礼貌爬虫** — 加延迟，看 robots.txt，不要 DDoS 别人
 4. **数据完整性 > 数据新鲜度** — 拿到 4 个赛季完整数据比拿到上周比赛但缺周二更有价值
+
+---
+
+## Part 12: 集成博彩开盘赔率 — 借市场的智慧
+
+📄 文件：[src/odds.py](src/odds.py)
+
+> 我们的 MODEL_LIMITATIONS 里说 "缺失球员级实力评分是最大短板"。**博彩赔率本身就是市场对球员、伤病、状态等所有信息的浓缩**。集成进来 = 不用自己造特征，直接借市场聚合的智慧。
+
+### 12.1 为什么赔率是个超强特征
+
+博彩公司每天烧几亿美元养几百号分析师，他们给出的赔率融合了：
+- 每个球员的实力评分（RAPTOR 类）
+- 当晚的伤病情况
+- 主客场、休息天数
+- 公众投注偏差
+- 锐利投注（sharp money）的修正信号
+
+**整体准确率**：单纯按赔率"猜主队赢"约 **67-70%**，比我们的 NN 还高。
+**ROC-AUC**：约 0.70-0.75，独自就达到一个体面模型的水平。
+
+把赔率作为特征塞进模型，相当于"白嫖"市场几亿美元的研究。
+
+### 12.2 赔率格式：3 种你必须懂
+
+#### American Odds（美式赔率，最常见）
+```
+-150  →  下注 $150 赢 $100 （热门）
++200  →  下注 $100 赢 $200 （冷门）
+-110  →  标准 vig（庄家利润）
+```
+
+#### Decimal Odds（欧式赔率）
+```
+1.67  →  下注 $1 赢 $0.67 净利
+3.00  →  下注 $1 赢 $2 净利
+```
+
+#### Implied Probability（隐含概率）
+这就是模型需要的形式。换算公式：
+
+```python
+# American odds → probability
+def american_to_prob(odds):
+    if odds < 0:
+        return -odds / (-odds + 100)   # -150 → 0.60
+    return 100 / (odds + 100)           # +200 → 0.333
+```
+
+### 12.3 关键：去 vig（庄家抽水）
+
+博彩公司的盘口必然让双方隐含概率**加起来 > 1**，多出的部分就是它的利润 (vig)。
+
+例子：
+```
+湖人 -120 → 隐含 55%
+勇士 +100 → 隐含 50%
+合计 = 105%  ← 庄家拿走 5% 作为 vig
+```
+
+我们要"公平概率"（fair probability），最简单的方法 — 按比例归一：
+
+```python
+def remove_vig(home_prob, away_prob):
+    total = home_prob + away_prob   # 1.05
+    return home_prob / total, away_prob / total
+    # → 52.4%, 47.6%（加起来正好 100%）
+```
+
+### 12.4 我们的特征设计
+
+`src/odds.py` 给出 3 个特征：
+
+| 特征 | 含义 |
+|---|---|
+| `home_implied_prob` | 主队公平胜率（去 vig 后） |
+| `away_implied_prob` | 客队公平胜率 |
+| `market_edge` | `home_implied_prob - 0.5`：主队优势量（正数偏主，负数偏客） |
+
+第 3 个特征 `market_edge` 是冗余的（可由前两个算出），但显式给出能让模型更快学到"主队是不是被市场看好"。
+
+### 12.5 数据来源选择
+
+| 选择 | 优点 | 缺点 |
+|---|---|---|
+| **Kaggle 历史数据集** | 免费、回溯多年 | 可能不够新 |
+| **SportsBookReviewsOnline** | 免费、Excel 下载 | 手动整理 |
+| **The Odds API** | 实时数据、JSON | 免费 500 次/月，只有未来比赛 |
+| **自己爬取**（NBA.com、ESPN） | 灵活 | 容易封禁 |
+| **付费 API** (BetGenius 等) | 完整、有历史 | 贵 |
+
+代码内置 3 种接入方式：
+```python
+load_odds_csv("data/raw/odds.csv")    # Kaggle 风格 CSV
+fetch_live_odds(api_key=...)           # The Odds API
+synthetic_odds(games)                  # 合成数据，只用于 demo
+```
+
+### 12.6 合成赔率的诚实性问题
+
+我们建了 `synthetic_odds()` 让你不需要真实数据也能跑通流程。但它有个严重问题：
+
+**合成赔率是从真实结果反推的**（添加噪声让准确率 ≈ 67%）。如果用它训练：
+- 模型会学到"赔率高 → 那队会赢"
+- 因为赔率本身就是从答案造出来的，模型相当于"半作弊"
+- AUC 会从 0.72 → 0.85，**看起来惊人但不真实**
+
+**正确的诚实做法**：
+1. 跑一次 `--odds synthetic` 看 AUC 跳了多少 → 作为"理论上限"
+2. 真正生产用 `--odds csv` 配上**真实历史赔率**
+3. 如果两者差距大，说明你的真实数据需要更新或清洗
+
+### 12.7 实际跑给你看
+
+```bash
+# 基线（无赔率特征）
+python main.py --source bref --skip-fetch
+# → NN AUC: 0.718
+
+# 加合成赔率（演示用，不要相信这个数字）
+python main.py --source bref --skip-fetch --odds synthetic
+# → NN AUC: 0.848  ← 涨了 13 个百分点
+
+# 加真实赔率（你需要先有 data/raw/odds.csv）
+python main.py --source bref --skip-fetch --odds csv
+# → NN AUC: ?（实际值通常涨 3-5 个百分点）
+```
+
+### 12.8 单场预测时用上赔率
+
+如果训练用了赔率特征，预测时也必须给：
+
+```bash
+python predict.py NYK DET --home-ml -180 --away-ml +155
+```
+
+`-180` 是 NYK 的 moneyline，`+155` 是 DET 的。代码会自动：
+1. 转成 implied probability
+2. 去 vig
+3. 算 market_edge
+4. 喂进模型
+
+### 12.9 真实场景示例
+
+假设今晚 OKC vs SAS，你从 ESPN 看到赔率：
+- OKC -140
+- SAS +120
+
+操作：
+```bash
+python predict.py OKC SAS --home-ml -140 --away-ml +120
+```
+
+模型输出会综合**自己的 ELO + 滚动统计** + **市场赔率**给出最终预测。
+通常会比单独靠任一信号准 2-3%。
+
+### 12.10 面试加分：为什么不直接用赔率作为预测？
+
+招聘官可能问："如果赔率这么强，你为啥还要搞神经网络？直接复读赔率不就完了？"
+
+**答案**：
+1. **赔率有 vig（庄家利润 ~4-5%）**，长期跟着赔率赌净期望负
+2. **市场也会错** — 模型有时能识别"市场低估了某队"的机会
+3. **我们的特征里有市场不一定看的因素** — 比如球员个体的连续状态、对手特定的化学反应
+4. **集成模型比任一单一信号都强** — 这是 Kaggle 比赛常胜配方
+
+简洁回答：
+> 赔率是个强 prior，我的模型 + 赔率是个更强的 posterior。
+
+### 12.11 总结
+
+| 维度 | 做了 |
+|---|---|
+| 数据格式 | American / decimal → implied prob → 去 vig 公平概率 |
+| 数据源 | CSV 加载、Odds API、合成 demo 三选一 |
+| 特征 | `home_implied_prob`、`away_implied_prob`、`market_edge` |
+| 训练接入 | `main.py --odds {off,csv,synthetic}` |
+| 预测接入 | `predict.py --home-ml -150 --away-ml +130` |
+| 诚实声明 | 合成赔率 AUC 提升只是"上限"，不代表真实贡献 |
 
 ---
 

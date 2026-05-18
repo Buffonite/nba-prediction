@@ -34,6 +34,13 @@ ELO_SEASON_CARRYOVER = 0.75     # fraction of rating retained between seasons
 # ── Injury / star-availability parameters ─────────────────────────────────────
 TOP_N_STARS          = 5        # number of "star" players counted per team
 
+# ── Betting odds (optional) ───────────────────────────────────────────────────
+# Real bookmaker odds are one of the strongest single-game predictors.
+# Off by default since real historical odds require a paid data source.
+USE_ODDS_FEATURES    = False
+ODDS_CSV_PATH        = "data/raw/odds.csv"   # path to historical odds CSV
+ODDS_API_KEY         = ""                    # https://the-odds-api.com (free 500/mo)
+
 # ── Model hyper-parameters ────────────────────────────────────────────────────
 
 RANDOM_SEED   = 42
