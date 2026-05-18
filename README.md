@@ -308,8 +308,13 @@ The tutorial has 11 parts:
 | Trained on regular-season games | Playoff-specific dynamics (rotations, scheme adjustments) not captured |
 | Star-availability is a proxy | Real injury impact varies — we count only "did they play", not "how impactful" |
 | ~5,200 training samples | Relatively small for deep learning; XGBoost might fit better |
-| No betting-line features | Market odds are a strong signal this model can't see |
+| No player-level skill features | Bookmakers use RAPTOR / EPM — this model only sees game outcomes |
+| Recency bias in rolling features | A single dominant playoff series over-shifts predictions |
 | Network access | Default `nba_api` source blocked in some regions; use `--source bref` |
+
+📖 **See [MODEL_LIMITATIONS.md](MODEL_LIMITATIONS.md) for an in-depth analysis** of why this
+model's predictions diverge from bookmakers (it currently favors NYK while the market favors
+OKC), and a prioritized roadmap to close that gap. Written specifically to discuss in interviews.
 
 ---
 
