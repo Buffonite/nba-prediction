@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBA 2025-26 Predictions — Live Dashboard</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue',
+               'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #f6f7fb;
+  color: #1d1d1f;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.wrapper { max-width: 1100px; margin: 0 auto; padding: 0 20px 60px; }
+
+/* Header */
+header {
+  background: linear-gradient(135deg, #1d428a 0%, #c8102e 100%);
+  color: #fff;
+  padding: 50px 20px 40px;
+  margin-bottom: 30px;
+}
+.header-inner { max-width: 1100px; margin: 0 auto; }
+.tag {
+  display: inline-block;
+  background: rgba(255,255,255,0.18);
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+}
+h1 { font-size: 36px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+.updated {
+  font-size: 14px;
+  opacity: 0.85;
+  margin-top: 8px;
+}
+.refresh-bar {
+  margin-top: 18px;
+  background: rgba(0,0,0,0.2);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: inline-block;
+}
+.refresh-bar code {
+  background: rgba(255,255,255,0.15);
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin: 0 4px;
+  font-family: 'SF Mono', monospace;
+}
+
+/* Hero champion card */
+.hero {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px 28px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 30px;
+  align-items: center;
+}
+@media (max-width: 700px) {
+  .hero { grid-template-columns: 1fr; }
+}
+.hero-headline { text-align: center; padding-right: 20px; border-right: 1px solid #eee; }
+@media (max-width: 700px) {
+  .hero-headline { border-right: none; padding-right: 0; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+}
+.hero-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #888;
+}
+.hero-team {
+  font-size: 44px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ff6b35 0%, #c8102e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 4px 0;
+}
+.hero-prob { font-size: 16px; color: #555; }
+.hero-prob strong { color: #1d1d1f; font-weight: 700; font-size: 28px; }
+.hero-mini-bars { font-size: 13px; }
+.hero-mini-bars h4 { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+
+/* Sections */
+section {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+section h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+section h3 { font-size: 18px; font-weight: 700; margin-bottom: 14px; color: #1d428a; }
+section h4 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #555; }
+section .lead { font-size: 14px; color: #666; margin-bottom: 18px; }
+
+/* Bar charts */
+.bar-row {
+  display: grid;
+  grid-template-columns: 56px 1fr 56px;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid #f0f0f3;
+}
+.bar-team { font-weight: 700; font-size: 14px; color: #1d428a; }
+.bar-track { height: 18px; background: #f3f3f5; border-radius: 4px; overflow: hidden; }
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b35 0%, #c8102e 100%);
+  border-radius: 4px;
+}
+.bar-fill.secondary { background: linear-gradient(90deg, #1d428a 0%, #4a6fbf 100%); }
+.bar-pct { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; }
+
+/* Series cards */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+.conf-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #888;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.series-card {
+  background: #fafafa;
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid #eee;
+  margin-bottom: 10px;
+}
+.series-card.locked { background: #f0f7f0; border-color: #c5e0c5; }
+.series-card.live { background: #fff5f5; border-color: #ffd1d1; }
+.status-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+.status-tag.locked { color: #2e7d32; }
+.status-tag.live { color: #c8102e; }
+.card-matchup { font-size: 18px; font-weight: 700; margin: 6px 0; }
+.card-note { font-size: 13px; color: #555; }
+.round-section { margin-top: 24px; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #eee; }
+th {
+  background: #fafafa;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+}
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.team-cell { font-weight: 700; color: #1d428a; }
+.winner-cell { background: #fff8e1; }
+
+/* Metrics */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+@media (max-width: 700px) { .metrics { grid-template-columns: 1fr 1fr; } }
+.metric {
+  background: #fafafa;
+  border-radius: 10px;
+  padding: 18px 12px;
+  text-align: center;
+}
+.metric-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #1d428a;
+}
+.metric-label {
+  font-size: 11px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Standings */
+.standings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 700px) { .standings-grid { grid-template-columns: 1fr; } }
+
+footer {
+  margin-top: 40px;
+  padding: 20px 0;
+  text-align: center;
+  font-size: 12px;
+  color: #888;
+}
+footer a { color: #1d428a; text-decoration: none; }
+
+.disclaimer {
+  background: #fff8e1;
+  border-left: 3px solid #f9a825;
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #5d4e00;
+  margin-top: 14px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <span class="tag">🏀 LIVE DASHBOARD • NEURAL NETWORK PREDICTIONS</span>
+    <h1>NBA 2025-26 Playoffs</h1>
+    <p class="updated">Last updated: <strong>2026-05-28 16:32</strong> · Data through <strong>2026-05-26</strong></p>
+    <div class="refresh-bar">
+      🔄 Refresh: double-click <code>refresh.bat</code> &nbsp;or&nbsp; run <code>python dashboard.py --refresh --open</code>
+    </div>
+  </div>
+</header>
+
+<div class="wrapper">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-headline">
+      <div class="hero-label">PREDICTED CHAMPION</div>
+      <div class="hero-team">NYK</div>
+      <div class="hero-prob"><strong>67.5%</strong> championship probability</div>
+    </div>
+    <div class="hero-mini-bars">
+      <h4>Top 5 contenders</h4>
+      
+              <div class="bar-row">
+                <span class="bar-team">NYK</span>
+                <div class="bar-track"><div class="bar-fill primary" style="width:67.5%"></div></div>
+                <span class="bar-pct">67.5%</span>
+              </div>
+
+              <div class="bar-row">
+                <span class="bar-team">OKC</span>
+                <div class="bar-track"><div class="bar-fill secondary" style="width:23.9%"></div></div>
+                <span class="bar-pct">23.9%</span>
+              </div>
+
+              <div class="bar-row">
+                <span class="bar-team">SAS</span>
+                <div class="bar-track"><div class="bar-fill secondary" style="width:8.6%"></div></div>
+                <span class="bar-pct">8.6%</span>
+              </div>
+    </div>
+  </div>
+
+  <!-- CURRENT BRACKET STATE -->
+  <section>
+    <h2>Bracket — current state</h2>
+    <p class="lead">All completed and in-progress series across both conferences.</p>
+    
+        <section class="round-section">
+          <h3>Round 2 — Conference Semi-finals</h3>
+          <div class="grid-2">
+            <div>
+              <div class="conf-label">EASTERN CONFERENCE</div>
+              
+        <div class="series-card locked">
+          <span class="status-tag locked">★ FINAL</span>
+          <div class="card-matchup">NYK 4 — 0 PHI</div>
+          <div class='card-note'>NYK wins 4-0</div>
+        </div>
+
+        <div class="series-card locked">
+          <span class="status-tag locked">★ FINAL</span>
+          <div class="card-matchup">DET 3 — 4 CLE</div>
+          <div class='card-note'>CLE wins 4-3</div>
+        </div>
+            </div>
+            <div>
+              <div class="conf-label">WESTERN CONFERENCE</div>
+              
+        <div class="series-card locked">
+          <span class="status-tag locked">★ FINAL</span>
+          <div class="card-matchup">SAS 4 — 2 MIN</div>
+          <div class='card-note'>SAS wins 4-2</div>
+        </div>
+
+        <div class="series-card locked">
+          <span class="status-tag locked">★ FINAL</span>
+          <div class="card-matchup">OKC 4 — 0 LAL</div>
+          <div class='card-note'>OKC wins 4-0</div>
+        </div>
+            </div>
+          </div>
+        </section>
+    
+        <section class="round-section">
+          <h3>Round 3 — Conference Finals</h3>
+          <div class="grid-2">
+            <div>
+              <div class="conf-label">EASTERN CONFERENCE</div>
+              
+        <div class="series-card locked">
+          <span class="status-tag locked">★ FINAL</span>
+          <div class="card-matchup">NYK 4 — 0 CLE</div>
+          <div class='card-note'>NYK wins 4-0</div>
+        </div>
+            </div>
+            <div>
+              <div class="conf-label">WESTERN CONFERENCE</div>
+              
+        <div class="series-card live">
+          <span class="status-tag live">● LIVE</span>
+          <div class="card-matchup">OKC 3 — 2 SAS</div>
+          <div class='card-note'>Model: <strong>OKC</strong> wins series 75%</div>
+        </div>
+            </div>
+          </div>
+        </section>
+    
+  </section>
+
+  <!-- MODAL PATH -->
+  <section>
+    <h2>Most-likely path to the title</h2>
+    <p class="lead">For each remaining series, the model's predicted winner and confidence. Compound probability of this exact bracket is small — see Monte Carlo below for true championship odds.</p>
+    <table>
+      <thead>
+        <tr><th>Round</th><th>Matchup</th><th>Current</th><th>Model pick</th><th>Confidence</th></tr>
+      </thead>
+      <tbody>
+        
+              <tr>
+                <td>Conference Finals</td>
+                <td><code>OKC vs SAS</code></td>
+                <td>3-2</td>
+                <td class="team-cell">OKC</td>
+                <td class="num">74.7%</td>
+              </tr>
+
+              <tr>
+                <td>NBA Finals</td>
+                <td><code>OKC vs NYK</code></td>
+                <td>not started</td>
+                <td class="team-cell">NYK</td>
+                <td class="num">65.5%</td>
+              </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- MONTE CARLO ODDS -->
+  <section>
+    <h2>Championship odds (10,000 Monte-Carlo simulations)</h2>
+    <p class="lead">Aggregated across all possible bracket paths from the current state — these are the model's true probability estimates.</p>
+    <div class="grid-2">
+      <div>
+        <h3>🏆 NBA Champion</h3>
+        
+              <div class="bar-row">
+                <span class="bar-team">NYK</span>
+                <div class="bar-track"><div class="bar-fill primary" style="width:67.5%"></div></div>
+                <span class="bar-pct">67.5%</span>
+              </div>
+
+              <div class="bar-row">
+                <span class="bar-team">OKC</span>
+                <div class="bar-track"><div class="bar-fill secondary" style="width:23.9%"></div></div>
+                <span class="bar-pct">23.9%</span>
+              </div>
+
+              <div class="bar-row">
+                <span class="bar-team">SAS</span>
+                <div class="bar-track"><div class="bar-fill secondary" style="width:8.6%"></div></div>
+                <span class="bar-pct">8.6%</span>
+              </div>
+      </div>
+      <div>
+        <h3>🥇 Reach NBA Finals</h3>
+        
+              <div class="bar-row">
+                <span class="bar-team">NYK</span>
+                <div class="bar-track"><div class="bar-fill secondary" style="width:100.0%"></div></div>
+                <span class="bar-pct">100.0%</span>
+              </div>
+
+              <div class="bar-row">
+                <span class="bar-team">OKC</span>
+                <div class="bar-track"><div class="bar-fill secondary" style="width:74.9%"></div></div>
+                <span class="bar-pct">74.9%</span>
+              </div>
+
+              <div class="bar-row">
+                <span class="bar-team">SAS</span>
+                <div class="bar-track"><div class="bar-fill secondary" style="width:25.1%"></div></div>
+                <span class="bar-pct">25.1%</span>
+              </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RECENT GAMES -->
+  <section>
+    <h2>Most recent playoff games</h2>
+    <p class="lead">Last 10 results from the playoffs — used to update ELO and rolling features.</p>
+    <table>
+      <thead>
+        <tr><th>Date</th><th>Away</th><th>Pts</th><th>Pts</th><th>Home</th><th>Winner</th></tr>
+      </thead>
+      <tbody>
+        
+              <tr>
+                <td>2026-05-26</td>
+                <td class="">SAS</td>
+                <td class="num">114</td>
+                <td class="num">127</td>
+                <td class="winner-cell">OKC</td>
+                <td><strong>OKC</strong></td>
+              </tr>
+
+              <tr>
+                <td>2026-05-25</td>
+                <td class="winner-cell">NYK</td>
+                <td class="num">130</td>
+                <td class="num">93</td>
+                <td class="">CLE</td>
+                <td><strong>NYK</strong></td>
+              </tr>
+
+              <tr>
+                <td>2026-05-24</td>
+                <td class="">OKC</td>
+                <td class="num">82</td>
+                <td class="num">103</td>
+                <td class="winner-cell">SAS</td>
+                <td><strong>SAS</strong></td>
+              </tr>
+
+              <tr>
+                <td>2026-05-23</td>
+                <td class="winner-cell">NYK</td>
+                <td class="num">121</td>
+                <td class="num">108</td>
+                <td class="">CLE</td>
+                <td><strong>NYK</strong></td>
+              </tr>
+
+              <tr>
+                <td>2026-05-22</td>
+                <td class="winner-cell">OKC</td>
+                <td class="num">123</td>
+                <td class="num">108</td>
+                <td class="">SAS</td>
+                <td><strong>OKC</strong></td>
+              </tr>
+
+              <tr>
+                <td>2026-05-21</td>
+                <td class="">CLE</td>
+                <td class="num">93</td>
+                <td class="num">109</td>
+                <td class="winner-cell">NYK</td>
+                <td><strong>NYK</strong></td>
+              </tr>
+
+              <tr>
+                <td>2026-05-20</td>
+                <td class="">SAS</td>
+                <td class="num">113</td>
+                <td class="num">122</td>
+                <td class="winner-cell">OKC</td>
+                <td><strong>OKC</strong></td>
+              </tr>
+
+              <tr>
+                <td>2026-05-19</td>
+                <td class="">CLE</td>
+                <td class="num">104</td>
+                <td class="num">115</td>
+                <td class="winner-cell">NYK</td>
+                <td><strong>NYK</strong></td>
+              </tr>
+
+              <tr>
+                <td>2026-05-18</td>
+                <td class="winner-cell">SAS</td>
+                <td class="num">122</td>
+                <td class="num">115</td>
+                <td class="">OKC</td>
+                <td><strong>SAS</strong></td>
+              </tr>
+
+              <tr>
+                <td>2026-05-17</td>
+                <td class="winner-cell">CLE</td>
+                <td class="num">125</td>
+                <td class="num">94</td>
+                <td class="">DET</td>
+                <td><strong>CLE</strong></td>
+              </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- STANDINGS -->
+  <section>
+    <h2>2025-26 Regular-season seeding</h2>
+    <p class="lead">Top 8 in each conference, used as the playoff seeds.</p>
+    <div class="standings-grid">
+      
+        <div class="seed-table">
+          <h4>🅴 Eastern Conference</h4>
+          <table>
+            <thead><tr><th>Seed</th><th>Team</th><th>Record</th><th>Pct</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="num">1</td>
+                <td class="team-cell">DET</td>
+                <td class="num">62-25</td>
+                <td class="num">71.3%</td>
+              </tr>
+              <tr>
+                <td class="num">2</td>
+                <td class="team-cell">BOS</td>
+                <td class="num">59-29</td>
+                <td class="num">67.0%</td>
+              </tr>
+              <tr>
+                <td class="num">3</td>
+                <td class="team-cell">NYK</td>
+                <td class="num">58-31</td>
+                <td class="num">65.2%</td>
+              </tr>
+              <tr>
+                <td class="num">4</td>
+                <td class="team-cell">CLE</td>
+                <td class="num">55-32</td>
+                <td class="num">63.2%</td>
+              </tr>
+              <tr>
+                <td class="num">5</td>
+                <td class="team-cell">TOR</td>
+                <td class="num">48-39</td>
+                <td class="num">55.2%</td>
+              </tr>
+              <tr>
+                <td class="num">6</td>
+                <td class="team-cell">PHI</td>
+                <td class="num">49-40</td>
+                <td class="num">55.1%</td>
+              </tr>
+              <tr>
+                <td class="num">7</td>
+                <td class="team-cell">ORL</td>
+                <td class="num">49-40</td>
+                <td class="num">55.1%</td>
+              </tr>
+              <tr>
+                <td class="num">8</td>
+                <td class="team-cell">ATL</td>
+                <td class="num">48-40</td>
+                <td class="num">54.5%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      
+        <div class="seed-table">
+          <h4>🅆 Western Conference</h4>
+          <table>
+            <thead><tr><th>Seed</th><th>Team</th><th>Record</th><th>Pct</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="num">1</td>
+                <td class="team-cell">OKC</td>
+                <td class="num">68-18</td>
+                <td class="num">79.1%</td>
+              </tr>
+              <tr>
+                <td class="num">2</td>
+                <td class="team-cell">SAS</td>
+                <td class="num">66-22</td>
+                <td class="num">75.0%</td>
+              </tr>
+              <tr>
+                <td class="num">3</td>
+                <td class="team-cell">LAL</td>
+                <td class="num">56-31</td>
+                <td class="num">64.4%</td>
+              </tr>
+              <tr>
+                <td class="num">4</td>
+                <td class="team-cell">DEN</td>
+                <td class="num">56-32</td>
+                <td class="num">63.6%</td>
+              </tr>
+              <tr>
+                <td class="num">5</td>
+                <td class="team-cell">HOU</td>
+                <td class="num">54-33</td>
+                <td class="num">62.1%</td>
+              </tr>
+              <tr>
+                <td class="num">6</td>
+                <td class="team-cell">MIN</td>
+                <td class="num">53-35</td>
+                <td class="num">60.2%</td>
+              </tr>
+              <tr>
+                <td class="num">7</td>
+                <td class="team-cell">PHX</td>
+                <td class="num">46-42</td>
+                <td class="num">52.3%</td>
+              </tr>
+              <tr>
+                <td class="num">8</td>
+                <td class="team-cell">LAC</td>
+                <td class="num">42-41</td>
+                <td class="num">50.6%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+    </div>
+  </section>
+
+  <!-- MODEL METRICS -->
+  <section>
+    <h2>Model performance</h2>
+    <p class="lead">Feed-forward neural network with BatchNorm + Dropout, trained on the chronological train/val/test split.</p>
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-value">5,275</div>
+        <div class="metric-label">Games trained</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">4</div>
+        <div class="metric-label">Seasons (2022-26)</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">0.721</div>
+        <div class="metric-label">NN ROC-AUC</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">67.8%</div>
+        <div class="metric-label">NN accuracy</div>
+      </div>
+    </div>
+    <div class="disclaimer">
+      <strong>Caveat:</strong> Model trained on regular-season games. Predictions may diverge from bookmakers because we lack player-level skill ratings (RAPTOR/EPM) and playoff-specific dynamics. See <code>MODEL_LIMITATIONS.md</code> for the full discussion.
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  Generated by <code>dashboard.py</code> · Data: Basketball Reference · Model: TensorFlow 2.21
+  · <a href="README.md">README</a> · <a href="TUTORIAL.md">Tutorial</a> · <a href="MODEL_LIMITATIONS.md">Limitations</a>
+</footer>
+
+</body>
+</html>

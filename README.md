@@ -110,7 +110,26 @@ python playoffs.py --from-round 2 \
 
 Each best-of-7 series respects the 2-2-1-1-1 home-court format. Monte-Carlo runs return per-team probabilities for each round.
 
-### 4. Streamlit web UI
+### 4. One-command live dashboard
+
+```bash
+python dashboard.py --refresh --open
+```
+
+Or just **double-click `refresh.bat`** (Windows) / `refresh.sh` (Mac/Linux).
+
+Generates a beautiful self-contained [`dashboard.html`](dashboard.html) with everything:
+- 🏆 Hero champion prediction with Monte Carlo probability
+- 📅 Current bracket state (all completed and in-progress series)
+- 🛣️ Modal path to the title (round-by-round projection)
+- 📊 Championship + Finals odds with bar charts
+- 🏀 Most recent playoff games
+- 🅴🅆 Both conferences' regular-season seeding
+- 📈 Model performance metrics
+
+Auto-detects the playoff state from your cached data — no manual updates needed.
+
+### 5. Streamlit web UI
 
 ```bash
 streamlit run app.py
