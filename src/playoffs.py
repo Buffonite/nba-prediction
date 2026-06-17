@@ -60,7 +60,7 @@ class MatchupPredictor:
         self._cache: dict[tuple[str, str], float] = {}
 
     def predict(self, home_abbr: str, away_abbr: str) -> float:
-        """Return P(home team wins) for a single game."""
+        """Return calibrated P(home team wins) for a single game."""
         key = (home_abbr.upper(), away_abbr.upper())
         if key in self._cache:
             return self._cache[key]
@@ -71,7 +71,13 @@ class MatchupPredictor:
         feats = build_prediction_features(home_id, away_id, self.game_date, self.games)
         X = feats[self.feature_cols].values.reshape(1, -1)
         X_scaled = self.scaler.transform(X)
-        prob = float(self.model.predict(X_scaled, verbose=0)[0, 0])
+        # v2: applies temperature scaling + XGBoost ensemble if available
+        from src.predict import predict_calibrated, load_artifacts as _la
+        prob = predict_calibrated(
+            self.model, self.scaler, X_scaled,
+            xgb_model=getattr(_la, "last_xgb", None),
+            temperature=getattr(_la, "last_temperature", 1.0),
+        )
         self._cache[key] = prob
         return prob
 

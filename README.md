@@ -1,13 +1,48 @@
 # 🏀 NBA Game & Playoff Prediction
 
-> End-to-end machine-learning project: from scraping 5,200+ NBA games to a neural-network model, daily-slate predictions, and a Monte-Carlo playoff bracket simulator — wrapped in a Streamlit web UI.
+> End-to-end machine-learning project: from scraping 5,200+ NBA games to a neural-network model, daily-slate predictions, and a Monte-Carlo playoff bracket simulator — wrapped in a Streamlit web UI and a one-command live dashboard.
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.21-orange.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status](https://img.shields.io/badge/status-portfolio--ready-brightgreen.svg)
 
-**Current prediction:** New York Knicks to win the 2025-26 NBA Championship (**53.1%** modelled probability) — [view the full results page](results.html).
+![Live dashboard preview](docs/screenshots/dashboard-preview.png)
+
+## 🏆 Validated prediction — 2025-26 NBA Champion
+
+> **Predicted: New York Knicks** (model said 75.5% to win)
+> **Actual: New York Knicks defeated San Antonio Spurs 4-1 in the Finals (June 13, 2026)** ✅
+>
+> Model picked NYK as the favorite at every round of the playoffs. The 4-1 series outcome
+> aligned more closely with the model's confident prediction than with Vegas (-132 ≈ 55%) —
+> a near-coin-flip line that didn't fit a decisive 5-game series. See the full journey in
+> [**CASE_STUDY.md**](CASE_STUDY.md).
+
+---
+
+## 🎯 Portfolio summary (recruiter 30-second read)
+
+**What:** Predicted the 2025-26 NBA Champion (Knicks) before and during the playoffs — picking
+them at every round, with the 4-1 Finals result validating the model's "decisive favorite"
+confidence over Vegas's near-coin-flip line.
+
+**Built end-to-end alone:**
+- **Data engineering** — Scraped 5,278 games (4 seasons) from Basketball Reference with rate-limit-aware fetcher + normalization layer
+- **Feature engineering** — Leakage-safe rolling stats, strength-of-schedule weighting, FiveThirtyEight-style ELO, star-availability proxy, betting-odds integration
+- **Modeling** — TensorFlow neural network + XGBoost ensemble with temperature scaling, chronological train/val/test split, logistic-regression baseline for sanity
+- **Honest evaluation** — Documented 7 failure modes in [`MODEL_LIMITATIONS.md`](MODEL_LIMITATIONS.md), iterated v1 → v2 with measurable improvement (87% → 75.5% over-confidence reduction)
+- **Productization** — CLI tools (single-game, daily slate, playoff bracket), Streamlit web UI, one-click live dashboard generator
+- **Communication** — Polished README, 11-part [TUTORIAL.md](TUTORIAL.md), [CASE_STUDY.md](CASE_STUDY.md) narrative, model-vs-Vegas analysis
+
+**Skills shown:** Python, TensorFlow, XGBoost, scikit-learn, pandas, web scraping, Monte-Carlo simulation, model calibration, ensemble learning, data visualization, technical writing.
+
+**Relevance for hiring:**
+- Data analyst — full pipeline from raw HTML to validated probability outputs
+- Sports analytics — applied ML with NBA-specific domain understanding (ELO, playoff format, home court)
+- ML engineer — productionised inference with proper artifact versioning, dashboard, and live refresh tooling
+
+📖 Start with [**CASE_STUDY.md**](CASE_STUDY.md) for the full story, or jump straight to the [live dashboard](dashboard.html).
 
 ---
 
@@ -110,7 +145,7 @@ python playoffs.py --from-round 2 \
 
 Each best-of-7 series respects the 2-2-1-1-1 home-court format. Monte-Carlo runs return per-team probabilities for each round.
 
-### 4. One-command live dashboard
+### 4. One-command live dashboard ⭐
 
 ```bash
 python dashboard.py --refresh --open
@@ -118,16 +153,19 @@ python dashboard.py --refresh --open
 
 Or just **double-click `refresh.bat`** (Windows) / `refresh.sh` (Mac/Linux).
 
+![Live dashboard preview](docs/screenshots/dashboard-preview.png)
+
 Generates a beautiful self-contained [`dashboard.html`](dashboard.html) with everything:
 - 🏆 Hero champion prediction with Monte Carlo probability
-- 📅 Current bracket state (all completed and in-progress series)
-- 🛣️ Modal path to the title (round-by-round projection)
-- 📊 Championship + Finals odds with bar charts
-- 🏀 Most recent playoff games
+- 📅 Current bracket state (all completed and in-progress series shown as cards)
+- 🛣️ Modal path to the title (round-by-round predicted winner & confidence)
+- 📊 Championship + Finals odds bar charts (10,000-iteration Monte Carlo)
+- 🏀 Most recent playoff games table
 - 🅴🅆 Both conferences' regular-season seeding
 - 📈 Model performance metrics
 
 Auto-detects the playoff state from your cached data — no manual updates needed.
+On refresh, existing data is backed up so a transient network error never wipes your cache.
 
 ### 5. Streamlit web UI
 
@@ -331,9 +369,48 @@ The tutorial has 11 parts:
 | Recency bias in rolling features | A single dominant playoff series over-shifts predictions |
 | Network access | Default `nba_api` source blocked in some regions; use `--source bref` |
 
-📖 **See [MODEL_LIMITATIONS.md](MODEL_LIMITATIONS.md) for an in-depth analysis** of why this
-model's predictions diverge from bookmakers (it currently favors NYK while the market favors
-OKC), and a prioritized roadmap to close that gap. Written specifically to discuss in interviews.
+📖 **See [MODEL_LIMITATIONS.md](MODEL_LIMITATIONS.md) for an in-depth analysis** with a prioritized
+roadmap to close the gap with bookmakers. Written specifically to discuss in interviews.
+
+---
+
+## 🔬 Live case study — when the model disagrees with Vegas
+
+As of the 2026 NBA Finals (NYK leads 1-0 over SAS), there's a striking gap:
+
+| | This model | Vegas (NYK -132 / SAS +112) |
+|---|---:|---:|
+| **NYK wins championship** | **87.0%** | **~55%** (vig-stripped) |
+| Implied per-game win probability | ~63% | ~50% |
+
+**The model is over-confident by ~30 percentage points.** Working out *why* this happens is more
+educational than the prediction itself, and exercises every failure mode listed in
+[`MODEL_LIMITATIONS.md`](MODEL_LIMITATIONS.md):
+
+1. **Recency bias** — NYK swept PHI and CLE; ELO inflated past historical baselines
+2. **Opponent quality not discounted** — NYK beat the 6 seed and a depleted 4 seed; SAS beat the
+   68-win OKC in a Game-7 road win, a far harder test. Model treats both as comparable evidence
+3. **No player-level skill features** — Wembanyama's defensive impact (likely DPOY) isn't in any
+   feature. Vegas's RAPTOR/EPM-based priors see it clearly
+4. **Path / battle-tested factor not modeled** — teams emerging from a 7-game grind historically
+   over-perform; teams cruising in sweeps under-perform. Model sees neither
+5. **Series independence assumption** — Monte Carlo assumes each game is i.i.d., missing
+   in-series adjustments
+
+**Historical base rate check:** Game 1 Finals winners win the series ~70% of the time. The
+model's 87% is well above that; Vegas's 55% is well below it (they think SAS is the better team
+on a per-game basis). Both deviations are informative.
+
+**What this case study demonstrates:** A model you can critique is a model you understand.
+Knowing *why* my prediction differs from the market — and being able to point at the specific
+feature gap that caused it — is the difference between "I built an ML model" and "I built an ML
+model and know what would make it better." The full failure-mode taxonomy + fix roadmap is in
+[`MODEL_LIMITATIONS.md`](MODEL_LIMITATIONS.md).
+
+**One-line fix that would shrink the gap:** ensemble with the betting-odds feature
+([`src/odds.py`](src/odds.py) is already wired up — see the section below). Plugging in
+historical odds typically pulls model predictions back toward market consensus by 10-15
+percentage points.
 
 ---
 

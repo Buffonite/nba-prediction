@@ -20,6 +20,7 @@ import json
 import pickle
 import numpy as np
 import pandas as pd
+from scipy.optimize import minimize_scalar
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
@@ -28,7 +29,33 @@ from src.model import build_nn, build_baseline, get_callbacks
 from src.preprocessing import get_feature_columns
 
 # Saved alongside model + scaler so predict.py knows the exact column order
-FEATURE_COLS_PATH = "outputs/models/feature_cols.json"
+FEATURE_COLS_PATH    = "outputs/models/feature_cols.json"
+CALIBRATION_PATH     = "outputs/models/calibration.json"
+XGB_MODEL_PATH       = "outputs/models/xgb.json"
+
+
+def fit_temperature(logits: np.ndarray, y_true: np.ndarray) -> float:
+    """
+    Fit a single temperature scalar T to minimise binary cross-entropy on
+    validation data:  p_calibrated = sigmoid(logit / T).
+
+    T > 1 makes the model LESS confident (shrinks probabilities toward 0.5).
+    Typical NN over-confidence problem maps to T in [1.5, 3.0].
+    """
+    def neg_log_likelihood(T: float) -> float:
+        T = max(T, 0.05)
+        scaled_logits = logits / T
+        # Numerically stable log-loss
+        log_p = -np.logaddexp(0, -scaled_logits)
+        log_1mp = -np.logaddexp(0, scaled_logits)
+        return -np.mean(y_true * log_p + (1 - y_true) * log_1mp)
+
+    # Constrain T >= 1.0: only allow SOFTENING, never sharpening.
+    # Validation NLL may have small T as optimum, but extreme predictions
+    # (especially compounded across a 7-game playoff series) need to be
+    # damped — not amplified.
+    result = minimize_scalar(neg_log_likelihood, bounds=(1.0, 10.0), method="bounded")
+    return float(result.x)
 
 
 def temporal_split(features: pd.DataFrame):
@@ -114,15 +141,57 @@ def run_training(features: pd.DataFrame) -> dict:
     # ── Logistic regression baseline ─────────────────────────────────────────
     print("\n── Training logistic regression baseline ──")
     baseline = build_baseline()
-    # Combine train + val for the baseline (it doesn't use val for early stopping)
     X_trainval = np.vstack([X_train_s, X_val_s])
     y_trainval = np.concatenate([y_train, y_val])
     baseline.fit(X_trainval, y_trainval)
     print(f"Baseline train accuracy: {baseline.score(X_trainval, y_trainval):.3f}")
 
+    # ── Temperature scaling (v2: fix over-confidence) ─────────────────────────
+    temperature = 1.0
+    if config.USE_TEMPERATURE_SCALING:
+        print("\n── Fitting temperature scaling on validation set ──")
+        val_probs = nn.predict(X_val_s, verbose=0).flatten()
+        val_probs = np.clip(val_probs, 1e-6, 1 - 1e-6)
+        val_logits = np.log(val_probs / (1 - val_probs))
+        temperature = fit_temperature(val_logits, y_val)
+        print(f"  Fitted temperature: T = {temperature:.3f}  "
+              f"(T > 1 → less confident; reduces extreme probabilities)")
+        with open(CALIBRATION_PATH, "w") as f:
+            json.dump({"temperature": temperature}, f)
+        print(f"  Saved calibration → '{CALIBRATION_PATH}'")
+
+    # ── XGBoost ensemble (v2: tabular data sweet spot) ────────────────────────
+    xgb_model = None
+    if config.USE_XGBOOST_ENSEMBLE:
+        print("\n── Training XGBoost ensemble ──")
+        import xgboost as xgb
+        xgb_model = xgb.XGBClassifier(
+            n_estimators     = 300,
+            max_depth        = 4,
+            learning_rate    = 0.05,
+            subsample        = 0.8,
+            colsample_bytree = 0.8,
+            eval_metric      = "auc",
+            random_state     = config.RANDOM_SEED,
+            tree_method      = "hist",
+            early_stopping_rounds = 25,
+        )
+        xgb_model.fit(
+            X_train_s, y_train,
+            eval_set=[(X_val_s, y_val)],
+            verbose=False,
+        )
+        best_iter = xgb_model.best_iteration
+        val_auc_xgb = float(np.mean(xgb_model.predict_proba(X_val_s)[:, 1] >= 0.5) == y_val) if False else None
+        print(f"  XGBoost trained — best iteration: {best_iter}")
+        xgb_model.save_model(XGB_MODEL_PATH)
+        print(f"  Saved XGBoost → '{XGB_MODEL_PATH}'")
+
     return {
         "nn_model":     nn,
         "baseline":     baseline,
+        "xgb_model":    xgb_model,
+        "temperature":  temperature,
         "history":      history,
         "X_test":       X_test_s,
         "y_test":       y_test,

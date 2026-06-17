@@ -36,11 +36,25 @@ def _team_game_log(games: pd.DataFrame) -> pd.DataFrame:
     Returns a DataFrame with columns:
         GAME_ID, GAME_DATE, team_id, pts_scored, pts_allowed, win
     """
-    home = games[["GAME_ID", "GAME_DATE", "home_team_id", "home_pts", "away_pts", "home_win"]].copy()
-    home.columns = ["GAME_ID", "GAME_DATE", "team_id", "pts_scored", "pts_allowed", "win"]
+    # Include opponent ELO (when available) so rolling stats can be
+    # weighted by strength of schedule.
+    has_elo = "home_elo_pre" in games.columns and "away_elo_pre" in games.columns
 
-    away = games[["GAME_ID", "GAME_DATE", "away_team_id", "away_pts", "home_pts", "home_win"]].copy()
-    away.columns = ["GAME_ID", "GAME_DATE", "team_id", "pts_scored", "pts_allowed", "win"]
+    home_cols = ["GAME_ID", "GAME_DATE", "home_team_id", "home_pts", "away_pts", "home_win"]
+    home_rename = ["GAME_ID", "GAME_DATE", "team_id", "pts_scored", "pts_allowed", "win"]
+    if has_elo:
+        home_cols += ["away_elo_pre"]
+        home_rename += ["opp_elo"]
+    home = games[home_cols].copy()
+    home.columns = home_rename
+
+    away_cols = ["GAME_ID", "GAME_DATE", "away_team_id", "away_pts", "home_pts", "home_win"]
+    away_rename = ["GAME_ID", "GAME_DATE", "team_id", "pts_scored", "pts_allowed", "win"]
+    if has_elo:
+        away_cols += ["home_elo_pre"]
+        away_rename += ["opp_elo"]
+    away = games[away_cols].copy()
+    away.columns = away_rename
     away["win"] = 1 - away["win"]   # away team wins when home_win == 0
 
     log = pd.concat([home, away], ignore_index=True)
@@ -52,6 +66,9 @@ def _rolling_stats(log: pd.DataFrame, window: int) -> pd.DataFrame:
     """
     For each row (team, game), compute rolling stats over the previous `window`
     games using .shift(1) so the current game is NOT included (no leakage).
+
+    If 'opp_elo' is in the log, also computes strength-of-schedule features
+    (average opponent ELO) and a quality-adjusted win rate.
     """
     grp = log.groupby("team_id")
 
@@ -64,6 +81,18 @@ def _rolling_stats(log: pd.DataFrame, window: int) -> pd.DataFrame:
     result[f"pts_scored{suffix}"]   = roll("pts_scored")
     result[f"pts_allowed{suffix}"]  = roll("pts_allowed")
     result[f"net_rating{suffix}"]   = result[f"pts_scored{suffix}"] - result[f"pts_allowed{suffix}"]
+
+    # Strength-of-schedule: average opponent ELO over the window
+    if config.USE_SOS_WEIGHTED_FEATURES and "opp_elo" in log.columns:
+        result[f"sos{suffix}"] = roll("opp_elo")
+        # Quality-adjusted win rate: a win against an elite team counts more.
+        # Normalises around 1.0 so multipliers don't blow up.
+        log_qa = log.copy()
+        log_qa["qa_win"] = log_qa["win"] * (log_qa["opp_elo"] / 1500.0).clip(0.7, 1.3)
+        grp_qa = log_qa.groupby("team_id")
+        result[f"qa_win_pct{suffix}"] = (
+            grp_qa["qa_win"].transform(lambda s: s.shift(1).rolling(window, min_periods=1).mean())
+        )
     return result
 
 

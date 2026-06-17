@@ -17,6 +17,7 @@ Usage:
 import os
 import json
 import pickle
+import numpy as np
 import pandas as pd
 from tensorflow import keras
 
@@ -25,12 +26,20 @@ from src.elo import compute_elo_features
 from src.preprocessing import _team_game_log
 
 FEATURE_COLS_PATH = "outputs/models/feature_cols.json"
+CALIBRATION_PATH  = "outputs/models/calibration.json"
+XGB_MODEL_PATH    = "outputs/models/xgb.json"
 
 
 # ── Loading saved artifacts ──────────────────────────────────────────────────
 
 def load_artifacts():
-    """Load model, scaler, and feature column list saved by train.py."""
+    """
+    Load all trained artifacts: NN, scaler, feature columns, optional
+    XGBoost ensemble model, and optional temperature scaling parameter.
+
+    Returns a dict (v2 — used to return a tuple; tuple form kept for backward
+    compatibility via load_artifacts_tuple()).
+    """
     missing = [
         p for p in (config.MODEL_SAVE_PATH, config.SCALER_SAVE_PATH, FEATURE_COLS_PATH)
         if not os.path.exists(p)
@@ -46,7 +55,54 @@ def load_artifacts():
         scaler = pickle.load(f)
     with open(FEATURE_COLS_PATH) as f:
         feature_cols = json.load(f)
-    return model, scaler, feature_cols
+
+    # Optional v2 components
+    temperature = 1.0
+    if os.path.exists(CALIBRATION_PATH):
+        with open(CALIBRATION_PATH) as f:
+            temperature = json.load(f).get("temperature", 1.0)
+
+    xgb_model = None
+    if os.path.exists(XGB_MODEL_PATH):
+        try:
+            import xgboost as xgb
+            xgb_model = xgb.XGBClassifier()
+            xgb_model.load_model(XGB_MODEL_PATH)
+        except Exception as e:
+            print(f"  ⚠ Failed to load XGBoost: {e}")
+
+    # Backward-compat: many callers expect (model, scaler, feature_cols)
+    # We return a tuple for them but stash the v2 components as attributes.
+    out = (model, scaler, feature_cols)
+    # Attach extras via a dict for callers that want them
+    load_artifacts.last_temperature = temperature
+    load_artifacts.last_xgb         = xgb_model
+    return out
+
+
+def predict_calibrated(model, scaler, X_scaled, xgb_model=None, temperature: float = 1.0) -> float:
+    """
+    Run model prediction with v2 improvements applied:
+      1. Get raw NN probability
+      2. Apply temperature scaling to reduce over-confidence
+      3. Ensemble with XGBoost if available
+    Returns final calibrated probability in [0, 1].
+    """
+    nn_prob = float(model.predict(X_scaled, verbose=0)[0, 0])
+
+    # Step 1: temperature scaling on NN output
+    if temperature and temperature != 1.0:
+        nn_prob = float(np.clip(nn_prob, 1e-6, 1 - 1e-6))
+        nn_logit = np.log(nn_prob / (1 - nn_prob))
+        nn_prob = 1.0 / (1.0 + np.exp(-nn_logit / temperature))
+
+    # Step 2: ensemble with XGBoost
+    if xgb_model is not None:
+        xgb_prob = float(xgb_model.predict_proba(X_scaled)[0, 1])
+        w = config.ENSEMBLE_NN_WEIGHT
+        return w * nn_prob + (1 - w) * xgb_prob
+
+    return nn_prob
 
 
 def team_id_from_abbr(abbr: str) -> tuple[int, str]:
@@ -64,19 +120,29 @@ def team_id_from_abbr(abbr: str) -> tuple[int, str]:
 
 def _rolling_stats_for_team(log: pd.DataFrame, team_id: int,
                              as_of_date: pd.Timestamp, window: int) -> dict:
-    """Stats from a team's last N games BEFORE as_of_date."""
+    """
+    Stats from a team's last N games BEFORE as_of_date.
+    v2: also returns SOS (avg opponent ELO) and quality-adjusted win rate
+    if 'opp_elo' is in the team game log.
+    """
     team_games = log[(log["team_id"] == team_id) & (log["GAME_DATE"] < as_of_date)]
     recent = team_games.tail(window)
     if len(recent) == 0:
         return None
     pts_avg = recent["pts_scored"].mean()
     pts_allowed = recent["pts_allowed"].mean()
-    return {
+    stats = {
         f"win_pct_last{window}":     recent["win"].mean(),
         f"pts_scored_last{window}":  pts_avg,
         f"pts_allowed_last{window}": pts_allowed,
         f"net_rating_last{window}":  pts_avg - pts_allowed,
     }
+    # v2: SOS-weighted features
+    if config.USE_SOS_WEIGHTED_FEATURES and "opp_elo" in recent.columns:
+        stats[f"sos_last{window}"]        = recent["opp_elo"].mean()
+        quality_weights                   = (recent["opp_elo"] / 1500.0).clip(0.7, 1.3)
+        stats[f"qa_win_pct_last{window}"] = (recent["win"] * quality_weights).mean()
+    return stats
 
 
 def _rest_for_team(log: pd.DataFrame, team_id: int,
@@ -110,13 +176,15 @@ def build_prediction_features(
     if len(history) == 0:
         raise ValueError(f"No historical games before {game_date.date()}")
 
-    # ELO ratings as of game_date
-    _, ratings = compute_elo_features(history, return_final_ratings=True)
+    # ELO ratings as of game_date — keep BOTH the augmented games table
+    # (with home_elo_pre / away_elo_pre columns) AND the final ratings dict,
+    # so the team game log can include opponent-ELO for SOS features.
+    history_with_elo, ratings = compute_elo_features(history, return_final_ratings=True)
     home_elo = ratings.get(home_team_id, config.ELO_INITIAL)
     away_elo = ratings.get(away_team_id, config.ELO_INITIAL)
 
-    # Per-team rolling stats from team game log
-    log = _team_game_log(history)
+    # Per-team rolling stats from team game log (includes opp_elo when ELO exists)
+    log = _team_game_log(history_with_elo)
     log["GAME_DATE"] = pd.to_datetime(log["GAME_DATE"])
 
     features: dict = {}
@@ -217,10 +285,14 @@ def predict_game(
         home_ml=home_ml, away_ml=away_ml,
     )
 
-    # 6. Select in saved order, scale, predict
+    # 6. Select in saved order, scale, predict (with v2 calibration + ensemble)
     X = feats[feature_cols].values.reshape(1, -1)
     X_scaled = scaler.transform(X)
-    prob = float(model.predict(X_scaled, verbose=0)[0, 0])
+    prob = predict_calibrated(
+        model, scaler, X_scaled,
+        xgb_model=load_artifacts.last_xgb,
+        temperature=load_artifacts.last_temperature,
+    )
 
     # 7. Friendly summary
     return {

@@ -271,6 +271,13 @@ def run_monte_carlo_from_state(
     east = derive_conf_finals_state("east")
     west = derive_conf_finals_state("west")
 
+    # Check for in-progress NBA Finals
+    finals_in_progress = None
+    for s in rounds.get("finals", []):
+        if not s["is_done"]:
+            finals_in_progress = s
+            break
+
     champ_counts  = defaultdict(int)
     finals_counts = defaultdict(int)
 
@@ -295,11 +302,22 @@ def run_monte_carlo_from_state(
         finals_counts[east_champ] += 1
         finals_counts[west_champ] += 1
 
-        # NBA Finals — neutral home court averaged from both directions
-        p_east_home = get_p(east_champ, west_champ)
-        p_west_home = get_p(west_champ, east_champ)
-        p_east_wins = (p_east_home + (1 - p_west_home)) / 2
-        champion = east_champ if rng.random() < p_east_wins else west_champ
+        # NBA Finals — if the actual Finals are in progress and the matchup
+        # matches our simulated conference champs, use that real state
+        if (finals_in_progress is not None
+                and set([east_champ, west_champ]) == set(finals_in_progress["teams"])):
+            higher = predict_higher_seed(east_champ, west_champ, games)
+            lower = west_champ if higher == east_champ else east_champ
+            h_wins = finals_in_progress["wins"][higher]
+            l_wins = finals_in_progress["wins"][lower]
+            p_higher_wins_series = get_p(higher, lower, h_wins, l_wins)
+            champion = higher if rng.random() < p_higher_wins_series else lower
+        else:
+            # Otherwise: neutral home-court fresh-series projection
+            p_east_home = get_p(east_champ, west_champ)
+            p_west_home = get_p(west_champ, east_champ)
+            p_east_wins = (p_east_home + (1 - p_west_home)) / 2
+            champion = east_champ if rng.random() < p_east_wins else west_champ
         champ_counts[champion] += 1
 
     return {

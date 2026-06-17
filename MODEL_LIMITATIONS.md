@@ -12,19 +12,43 @@ than any low metric.
 
 ## 1. The discrepancy
 
-| | This model | Vegas / major prediction sites |
-|---|---:|---:|
-| Most likely champion (May 2026) | **NYK 53.1%** | **OKC ~40-45%** |
-| Second favorite | OKC 26.1% | NYK or SAS |
-| Third favorite | SAS 17.5% | SAS |
+This model has been tracked against Vegas at multiple points in the 2026 playoffs.
+The gap is **persistent and grows in the same direction** every time:
 
-The model is **directionally wrong about the favorite**. This isn't a small
-calibration error — it's a meaningful divergence that demands explanation.
+### Mid-playoffs (May 2026, Round 2 in progress)
+
+| | This model | Vegas |
+|---|---:|---:|
+| Most likely champion | **NYK 53.1%** | **OKC ~40%** |
+| Model error | favors NYK | favors OKC |
+
+### NBA Finals Game 1 (June 3, 2026)
+
+| | This model | Vegas (NYK -132 / SAS +112) |
+|---|---:|---:|
+| NYK series win prob | **87.0%** | **~55%** (vig-stripped) |
+| Implied per-game NYK win prob | ~63% | ~50% |
+| Disagreement | **+32 pp** | — |
+
+**A 32-percentage-point gap** between a hobby model and the aggregate of every
+bookmaker in the US isn't a calibration error — it's a structural model failure
+that demands explanation.
 
 Bookmakers aren't infallible (they shade lines to manage exposure), but their
 aggregate prior reflects decades of analyst work, player-tracking data, and
 the collective wisdom of sharps who eat losses for being wrong. When a hobby
 model disagrees with the market, **the burden of proof is on the model**.
+
+### Historical base-rate sanity check
+NBA Finals Game 1 winners win the series **~70% of the time** (since 2000).
+- Model at **87%** → above the historical average → over-confident
+- Vegas at **55%** → below the historical average → market thinks SAS is the
+  better team on a per-game basis, with NYK's 1-0 lead barely tipping things
+
+Both deviations from 70% are informative. The model deviates *up* because it
+over-weights NYK's recent dominance; Vegas deviates *down* because it sees
+SAS's player talent (Wembanyama) and battle-tested path (Game-7 road win at
+OKC) that the model can't quantify.
 
 ---
 
