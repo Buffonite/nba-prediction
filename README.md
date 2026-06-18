@@ -2,8 +2,13 @@
 
 > End-to-end machine-learning project: from scraping 5,200+ NBA games to a neural-network model, daily-slate predictions, and a Monte-Carlo playoff bracket simulator — wrapped in a Streamlit web UI and a one-command live dashboard.
 
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-buffonite.github.io-1d428a?style=for-the-badge)](https://buffonite.github.io/nba-prediction/dashboard.html)
+[![Results](https://img.shields.io/badge/🏆_Results_Page-View_Predictions-c8102e?style=for-the-badge)](https://buffonite.github.io/nba-prediction/results.html)
+[![Case Study](https://img.shields.io/badge/📖_Case_Study-Read_the_Story-ff6b35?style=for-the-badge)](https://buffonite.github.io/nba-prediction/CASE_STUDY.md)
+
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.21-orange.svg)
+![XGBoost](https://img.shields.io/badge/XGBoost-3.2-red.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status](https://img.shields.io/badge/status-portfolio--ready-brightgreen.svg)
 
@@ -42,7 +47,7 @@ confidence over Vegas's near-coin-flip line.
 - Sports analytics — applied ML with NBA-specific domain understanding (ELO, playoff format, home court)
 - ML engineer — productionised inference with proper artifact versioning, dashboard, and live refresh tooling
 
-📖 Start with [**CASE_STUDY.md**](CASE_STUDY.md) for the full story, or jump straight to the [live dashboard](dashboard.html).
+📖 Start with [**CASE_STUDY.md**](CASE_STUDY.md) for the full story, or jump straight to the [live dashboard](https://buffonite.github.io/nba-prediction/dashboard.html) ↗.
 
 ---
 

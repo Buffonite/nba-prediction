@@ -52,8 +52,9 @@ discounted, ELO over-reactive, no XGBoost ensemble, no calibration), and the
 v2 model came in at 75.5%. The 4-1 series result lands closer to that than
 to the market's coin-flip pricing.
 
-Demo + code: [GitHub link]
-Walkthrough: [GitHub case study link]
+Live demo:    https://buffonite.github.io/nba-prediction/dashboard.html
+Code + docs:  https://github.com/buffonite/nba-prediction
+Case study:   https://buffonite.github.io/nba-prediction/CASE_STUDY.md
 
 Looking for data analyst / sports analytics roles — happy to talk about any
 of the design decisions in the repo.
